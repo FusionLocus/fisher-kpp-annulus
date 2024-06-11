@@ -1,0 +1,38 @@
+{
+  "T": "10.0",
+  "num_steps": "100",
+  "Lx": "3.142",
+  "Ly": "0.316",
+  "sbar": "1",
+  "dbar": "0.005",
+  "tol": "0.1",
+  "meshpath": "meshes/rect-fine-halfannulus-anaologous-notail",
+  "u_0": ["(x[0] == 0 && x[1] > 0) ? 1 : {0}", "0"],
+  "model_params": [{
+    "sbar": "1",
+    "dbar": "0.005"
+  }],
+  "simid": "rectcompare-fine-paper",
+  "BC": [{"Gamma1":{
+                     "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[1]) < 0.0001)"],
+                     "val1": "0",
+                     "type": "vn"
+                  },
+         "Gamma2":{
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]) < 0.0001)"],
+                    "val1": "1",
+                    "type": "d"
+                  },
+        "Gamma3":{
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[1] - 0.316) < 0.0001)"],
+                    "val1": "0",
+                    "type": "vn"
+                  },
+         "Gamma4": {
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0] - 3.142) < 0.0001)"],
+                    "val1": "0",
+                    "val2": "0",
+                    "type": "vn"
+                  }
+        }]
+}

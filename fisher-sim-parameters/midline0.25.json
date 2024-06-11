@@ -1,0 +1,36 @@
+  {
+    "T": "5.0",
+    "num_steps": "50",
+    "Ro": "0.45",
+    "Ri": "0.05",
+    "tol": "0.1",
+    "meshpath": "meshes/midline-r0-0.25-fine",
+    "u_0": ["(x[0] == 0 && x[1] > 0) ? 1 : {0}", "0"],
+    "model_params": [{
+      "dbar": "0.005",
+      "sbar": "1"
+      }],
+    "simid": "fisher-r0-midline0.25",
+    "BC": [{"Gamma1":{
+                       "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 0.45*0.45) < {0})", "0.001"],
+                       "val1": "0",
+                       "type": "vn"
+                    },
+           "Gamma2":{
+                      "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]) < 0.001) and (x[1] > {0})", "0"],
+                      "val1": "1",
+                      "type": "d"
+                    },
+          "Gamma3":{
+                      "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 0.05*0.05) < {0})", "0.001"],
+                      "val1": "0",
+                      "type": "vn"
+                    },
+          "Gamma4": {
+                      "boundary_D": ["lambda x, on_boundary: on_boundary and ((abs(x[1] - {0}) < 0.000001) and x[0] - 0.000001 < 0)", "-0.05"],
+                      "val1": "0",
+                      "type": "vn"
+          }
+          }]
+  }
+  

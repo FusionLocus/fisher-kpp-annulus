@@ -1,0 +1,36 @@
+{
+  "T": "10.0",
+  "num_steps": "100",
+  "Ro": "1.158",
+  "Ri": "0.842",
+  "tol": "0.1",
+  "meshpath": "meshes/half-annulus-notail-fine/",
+  "u_0": ["(x[0] == 0 && x[1] > 0) ? 1 : {0}", "0"],
+  "model_params": [{
+    "dbar": "0.005",
+    "sbar": "1"
+    }],
+  "simid": "fishernormal-baseline-finegrained-paper",
+  "BC": [{"Gamma1":{
+                     "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 1.158*1.158) < {0})", "0.001"],
+                     "val1": "0",
+                     "type": "vn"
+                  },
+         "Gamma2":{
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]) < 0.001) and (x[1] > {0})", "0"],
+                    "val1": "1",
+                    "type": "d"
+                  },
+        "Gamma3":{
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 0.842*0.842) < {0})", "0.001"],
+                    "val1": "0",
+                    "type": "vn"
+                  },
+        "Gamma4": {
+                    "boundary_D": ["lambda x, on_boundary: on_boundary and ((abs(x[1] - {0}) < 0.000001) and x[0] < 0)", "-0.842"],
+                    "val1": "0",
+                    "type": "vn"
+        }
+      }
+      ]
+}

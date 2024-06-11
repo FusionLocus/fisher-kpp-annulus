@@ -1,0 +1,35 @@
+{
+  "T": "4.0",
+  "num_steps": "40",
+  "Ro": "1.5",
+  "Ri": "0.5",
+  "tol": "0.1",
+  "meshpath": "meshes/halfannulus-thickness-1.0-fine/",
+  "u_0": ["(x[0] == 0 && x[1] > 0) ? 1 : {0}", "0"],
+  "comment": "Fisher simulation on the thick half annulus fine.",
+  "model_params": [{
+    "sbar": "1",
+    "dbar": "0.005"
+  }],
+  "BC": [{"Gamma1":{
+                     "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 0.5*0.5) < {0})", "0.001"],
+                     "val1": "0",
+                     "type": "vn"
+                  },
+          "Gamma2":{
+                    "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]) < 0.000001) and (x[1] > {0})", "0"],
+                    "val1": "1",
+                    "type": "d"
+                  },
+                  "Gamma3":{
+                              "boundary_D": ["lambda x, on_boundary : on_boundary and (abs(x[0]*x[0] + x[1]*x[1] - 1.5*1.5) < {0})", "0.001"],
+                              "val1": "0",
+                              "type": "vn"
+                            },
+          "Gamma4": {
+            "boundary_D": ["lambda x, on_boundary: on_boundary and ((abs(x[1] - {0}) < 0.000001) and x[0] - 0.000001 < 0)", "-0.5"],
+            "val1": "0",
+            "type": "vn"
+                    }
+                            }]
+}
