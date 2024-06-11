@@ -4,7 +4,7 @@
   "Ro": "1.158",
   "Ri": "0.842",
   "tol": "0.1",
-  "meshpath": "meshes/quarter-annulus-fine-hex/",
+  "meshpath": "meshes/quarter-annulus-fine/",
   "u_0": ["( x[1] > 0) ?  exp(-(x[0]*x[0]+(x[1]-1)*(x[1]-1))/0.05) : {0}", "0"],
   "comment": "Fisher simulation on the half annulus fine testing out transients.",
   "model_params": [{
