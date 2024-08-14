@@ -1,10 +1,9 @@
-from fenics import *
+#from fenics import *
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import matplotlib.colors as coloropts
 import matplotlib
-import imageio
 from glob import glob
 import os
 import re
@@ -25,7 +24,7 @@ def check_points(themesh, markers, idx):
     return 
 
 def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0, 
-                         vmax=2, iso=0.5, annulus=True, plot_border=False, expensive=True,
+                         vmax=1, iso=0.5, annulus=True, plot_border=False, expensive=True,
                          paper=False):
     """Function for setting up contour plots. NB: lists of coordinates and values must be
     related correctly (ie. lengths the same and come in sets (x, y, u))
@@ -110,11 +109,11 @@ def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0,
         else:
             ax1.set_xticks([0, 1.5])
             ax1.set_xlim([0, 1.570796])
-            ax1.set_ylim([0, 0.4])
-            ax1.set_yticks([0])
+            ax1.set_ylim([0, 1.1*max_y])
+            ax1.set_yticks([0, max_y])
             
 
-        ax2.set_yticks([0, 0.25, 0.5, 0.75, 1])
+        ax2.set_yticks([0, 0.5, 1])
         ax2.set_ylim([0, 1])
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)

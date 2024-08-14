@@ -1,131 +1,224 @@
 # Functions for constructing a problem
-from fenics import *
-from dolfin import *
-import simutils.preproc as preproc
-import json
-import sympy
 import math
+from mpi4py import MPI
+import ufl
+import numpy as np
+from dolfinx import fem, mesh, io, plot
+from dolfinx.io.gmshio import model_to_mesh
+from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.nls.petsc import NewtonSolver
+import adios4dolfinx
+import gmsh
+import os
+import sys
+from basix.ufl import element
+from petsc4py.PETSc import ScalarType
 
-class BoundaryDef(SubDomain):
-    def __init__(self, boundary_D):
-        cpp.mesh.SubDomain.__init__(self)
-        expression = preproc.parse_expression(boundary_D)
-        if len(expression) > 1 and (isinstance(expression, list) or isinstance(expression, tuple)):
-            expression = expression[0]
-        
-        self.boundary_descriptor = eval(expression)
+#from dolfinx.fem.petsc import
 
-    tol = 1e-14
+##### Code for running a fisher-KPP simulation #####
 
-    def inside(self, x, on_boundary):
-        return self.boundary_descriptor(x, on_boundary)
-
-def setup_BCs(themesh, raw_bcs, V, u, v, bypass=[]):
-    """Function for reading and parsing boundary conditions.
-    Arguments:
-        themesh (DOLFIN mesh) - mesh upon which to construct the bcs
-        raw_bcs (dictionary) - dictionary from a .json containing information about the bcs.
-        V (FENICs function space) - function space containing measure information.
-        u (FENICs function) - Trial function
-        v (FENICs function) - Test function
-        bypass (list) - If empty, generate boundary markers. If full, should contain
-        boundary markers object and also a measure for those markers ds
-
-    Returns:
-        bcs (List) - List of dirichlet boundary condition objects
-        integrals_VN (List) - List of von-neumman bc integrals
-        integrals_R_L (List) - list of linear robin bc integrals 
-        integrals_R_a (List) - list of bilinear robin bc integrals
-        ds (FENICs measure) - Redefined measure to take into account the boundary markers
-        boundary_markers (DOLFIN boundary markers) - Boundary markers
-
+class FisherProblem():
+    """All utilities to run a Fisher solver and save the results to file.
     """
-    
-    markers = []
-    bcs = []
-    keys = raw_bcs[0].keys()
-    if not bypass:
-        boundary_markers = MeshFunction('size_t', themesh, themesh.topology().dim()-1)
-        c = 0
-        # Go through each boundary and mark it
-        for key in keys:
-            current_marker = BoundaryDef(raw_bcs[0][key]['boundary_D'])
-            markers.append(current_marker)
-            markers[c].mark(boundary_markers, c)
-            c += 1
+    def __init__(self, parameters):
 
-        # Redefine the measure
-        ds =  Measure('ds', domain=themesh, subdomain_data=boundary_markers)
-    
-    elif bypass:
-        boundary_markers = bypass[0]
-        ds = bypass[1]
+        self.params = parameters
+        self.dt = (parameters['tf'] - parameters['t0'])/parameters['n_t']
 
-    # Put each type of boundary condition in a list
-    bcs = []
-    integrals_VN = []
-    integrals_R_L = []
-    integrals_R_a = []
+        return
 
-    c = 0 
-    for key in keys:
-        # Dirichlet boundary conditions
-        if raw_bcs[0][key]['type'] == 'd':
-            expression = preproc.parse_expression(raw_bcs[0][key]['val1'])
-            current_bc = DirichletBC(V, expression,
-                          boundary_markers, c)
-            bcs.append(current_bc)
+    def get_mesh(self, bypass=False):
         
-        # Robin boundary conditions
-        elif raw_bcs[0][key]['type'] == 'r':
-            if float(raw_bcs[0][key]['val1']) != 0:
-                r = float(preproc.parse_expression(raw_bcs[0][key]['val1']))
-                print('r={0}'.format(r))
-                integrals_R_a.append(r*u*v*ds(c))
-            if float(raw_bcs[0][key]['val2']) != 0:
-                s = float(preproc.parse_expression(raw_bcs[0][key]['val2']))
-                integrals_R_L.append(r*s*v*ds(c))
+        if self.params['case'] == 'annulus':
+            model = make_annulus(self.params)
+        
+        elif self.params['case'] == 'rectangle':
+            model = make_rectangle(self.params)
 
-        # Von-Neumann boundary conditions
-        elif raw_bcs[0][key]['type'] == 'vn':
-            if float(raw_bcs[0][key]['val1']) != 0:
-                g = float(preproc.parse_expression(raw_bcs[0][key]['val1']))
-                integrals_VN.append(g*v*ds(c))
+        msh, cell_tags, facet_tags = model_to_mesh(model, 
+                                MPI.COMM_WORLD,
+                                0)
+        
+        self.element = element(self.params['element_type'], 
+                               msh.basix_cell(),
+                               self.params['degree'])
 
-        c += 1
-    if bypass:
-        return bcs, integrals_VN, integrals_R_L, integrals_R_a
-    else:
-        return bcs, integrals_VN, integrals_R_L, integrals_R_a, ds, boundary_markers
+        self.msh = msh
+        gmsh.finalize()
+        # Define space, u at current and previous timestep
+        self.V = fem.functionspace(self.msh, self.element)
 
-def setup_fisher(mesh_path, raw_bcs, u0, dt, sbar, dbar):
-    """Function to set up a fisher problem with appropriate boundary conditions"""
+        return
+
+    def setup_fkpp_problem(self):
+        """Requires that self.msh and self.element have been defined (e.g. by running self.get_mesh())
+        Implements the problem using a Crank-Nicolson time discretisation (at this point, the problem
+        is semi-discretised as is only discrete in time, not in space. FENICSX will handle the spatial
+        discretisation).
+        """
+
+
+        self.u, self.u_n = fem.Function(self.V), fem.Function(self.V)
+        self.v = ufl.TestFunction(self.V)
+
+        dt, D, k = self.dt, self.params['d'], self.params['k']
+
+        # For ease of notation, write u and v as references to their class definitions.
+        u, u_n, v = self.u, self.u_n, self.v
+
+        # Give u and u_n their initial values (which we take to be the same).
+        u.interpolate(self.params['ic'])
+        u_n.interpolate(self.params['ic'])
+
+
+
+        # Assumes either Dirichlet or no-flux boundary conditions.
+        self.F = (u*v - u_n*v)*ufl.dx + 0.5*dt*(
+            D*ufl.inner(ufl.nabla_grad(u), ufl.nabla_grad(v))
+            + D*ufl.inner(ufl.nabla_grad(u_n), ufl.nabla_grad(v))
+            - k*u*(1-u)*v - k*u_n*(1-u_n)*v)*ufl.dx
+
+
+        return
+
+    def setup_dirichlet_bc(self, marker_func):
+
+        facets = mesh.locate_entities_boundary(
+            self.msh,
+            dim=1,
+            marker= marker_func
+        )
+        dofs = fem.locate_dofs_topological(V=self.V, 
+                                           entity_dim=1,
+                                           entities=facets)
+
+        self.bc = fem.dirichletbc(value=ScalarType(self.params['u_d']), 
+                                  dofs=dofs, 
+                                  V=self.V)
+
+        return
+
+    def setup_solution_file(self):
+        """Creates a folder for the solution and to store any relevant plots."""
+        self.soln_file = self.params['output_dir']+'soln.bp'
+        
+        adios4dolfinx.write_mesh(self.soln_file, self.msh)
+
+
+        return
+
+    def setup_solver(self):
+        """Produce a non-linear solver using the F defined by setup_fkpp_problem().
+        """
+        problem = NonlinearProblem(self.F, self.u, bcs=[self.bc])
+        self.solver = NewtonSolver(MPI.COMM_WORLD, problem)
+        self.solver.convergence_criterion = "incremental"
+        self.solver.rtol = 1e-6
+        self.solver.report = True
+
+
+        return
+
+    def run_simulation(self):
+        t = self.params['t0']
+        
+        adios4dolfinx.write_function(self.soln_file, self.u, time=t, name='u')
+
+        for n in range(self.params['n_t']):
+            t += self.dt
+            
+            self.solver.solve(self.u)
+            umin = np.min(self.u.x.array)
+            umax = np.max(self.u.x.array)
+            print(f'Iterating, t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+            
+            adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
+
+            self.u_n.x.array[:] = self.u.x.array
+
+        return
     
-    themesh, mvc, mf = preproc.make_mesh(mesh_path)
+def make_annulus(params):
 
-    V = FunctionSpace(themesh, 'P', 1)
-    Q = FunctionSpace(themesh, 'P', 1)
-
-    # Define initial condition
-    u_0 = Expression(preproc.parse_expression(u0)[0], degree=2)
-
-    # Define initial values
-    u_n1 = interpolate(u_0, V)
-    u_n2 = interpolate(u_0, V)
-
-    # Define variational problem
-    u = TrialFunction(V)
-    v = TestFunction(V)
+    lc = params['lc']
+    Ri = params['r0'] - params['delta']/2
+    Re = params['r0'] + params['delta']/2
     
-    # Define boundary conditions
-    bcs, integrals_VN, integrals_R_L, integrals_R_a, ds, boundary_markers = setup_BCs(themesh, raw_bcs, V, u, v)
-    
-    # Definition of the fisher problem
-    a = u*v*dx + dt*(dbar*dot(grad(u), grad(v))*dx 
-    + sbar*u*u_n1*v*dx - sbar*u*v*dx - sum(integrals_R_a))
-    
-    L = u_n1*v*dx + dt*(-sum(integrals_R_L) + sum(integrals_VN))
+    gmsh.initialize()
+    # Outer annulus arc points
+    factory = gmsh.model.geo
 
-    u = Function(V)
+    factory.addPoint(
+        0, Re, 0, lc, 1 # (x, y, z, lc, tag)
+    )
 
-    return themesh, V, Q, u_0, a, L, u, u_n1, u_n2, bcs, ds, boundary_markers
+    factory.addPoint(Re, 0, 0, lc, 2)
+    factory.addPoint(0, -Re, 0, lc, 3)
+
+    # Inner annulus arc points
+    factory.addPoint(0, -Ri, 0, lc, 4)
+    factory.addPoint(Ri, 0, 0, lc, 5)
+    factory.addPoint(0, Ri, 0, lc, 6)
+
+    # Centre of the annulus
+    factory.addPoint(0, 0, 0, lc, 7)
+
+    # Implement the annulus arcs and line boundaries
+    factory.addCircleArc(1, 7, 2, 1)
+    factory.addCircleArc(2, 7, 3, 2)
+    factory.addLine(3, 4, 3)
+    factory.addCircleArc(4, 7, 5, 4)
+    factory.addCircleArc(5, 7, 6, 5)
+    factory.addLine(6, 1, 6)
+
+    # Produce curve loop
+    factory.addCurveLoop([1, 2, 3, 4, 5, 6], 7)
+    factory.addPlaneSurface([7], 8)
+
+
+    factory.synchronize()
+
+    gmsh.model.addPhysicalGroup(1, [1, 2, 3, 4, 5, 6], 9)
+    gmsh.model.addPhysicalGroup(2, [8], 10)
+
+    gmsh.model.mesh.generate(2)
+    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
+    
+    return gmsh.model
+
+def make_rectangle(params):
+
+    lc = params['lc']
+    Lx = params['lx']
+    Ly = params['ly']
+    
+    gmsh.initialize()
+    # Corners of the rectangle
+    factory = gmsh.model.geo
+
+    factory.addPoint(
+        0, 0, 0, lc, 1 # (x, y, z, lc, tag)
+    )
+    factory.addPoint(Lx, 0, 0, lc, 2)
+    factory.addPoint(Lx, Ly, 0, lc, 3)
+    factory.addPoint(0, Ly, 0, lc, 4)
+
+    factory.addLine(1, 2, 1)
+    factory.addLine(2, 3, 2)
+    factory.addLine(3, 4, 3)
+    factory.addLine(4, 1, 4)
+
+    # Produce curve loop
+    factory.addCurveLoop([1, 2, 3, 4], 5)
+    factory.addPlaneSurface([5], 6)
+
+    factory.synchronize()
+
+    gmsh.model.addPhysicalGroup(1, [1, 2, 3, 4], 7)
+    gmsh.model.addPhysicalGroup(2, [6], 8)
+
+    gmsh.model.mesh.generate(2)
+    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
+    
+    return gmsh.model
