@@ -13,6 +13,7 @@ import os
 import sys
 from basix.ufl import element
 from petsc4py.PETSc import ScalarType
+import logging
 
 #from dolfinx.fem.petsc import
 
@@ -120,9 +121,11 @@ class FisherProblem():
 
         return
 
-    def run_simulation(self):
+    def run_simulation(self, verbose=True, logger=None, save_at_end=False):
         t = self.params['t0']
-        
+        if not verbose and logger is not None:
+            if MPI.COMM_WORLD.rank == 0:
+                logger.info('Initialising simulation run...')
         adios4dolfinx.write_function(self.soln_file, self.u, time=t, name='u')
 
         for n in range(self.params['n_t']):
@@ -131,12 +134,22 @@ class FisherProblem():
             self.solver.solve(self.u)
             umin = np.min(self.u.x.array)
             umax = np.max(self.u.x.array)
-            print(f'Iterating, t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
-            
-            adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
+            if MPI.COMM_WORLD.rank == 0:
+                if verbose:
+                    print(f'Iterating, t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+                elif not verbose and logger is not None:
+                    logger.info(f'Iterating, t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+
+            if not save_at_end:
+                adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
 
             self.u_n.x.array[:] = self.u.x.array
 
+        if save_at_end:
+            adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
+            if MPI.COMM_WORLD.rank == 0:
+                logger.info(f'Saving at end of simulation only. t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+        
         return
     
 def make_annulus(params):
@@ -183,7 +196,8 @@ def make_annulus(params):
     gmsh.model.addPhysicalGroup(2, [8], 10)
 
     gmsh.model.mesh.generate(2)
-    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
+    #if MPI.COMM_WORLD.rank == 0:
+    #    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
     
     return gmsh.model
 
@@ -219,6 +233,8 @@ def make_rectangle(params):
     gmsh.model.addPhysicalGroup(2, [6], 8)
 
     gmsh.model.mesh.generate(2)
-    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
+    print('test-1.0')
+    #if MPI.COMM_WORLD.rank == 0:
+    #    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
     
     return gmsh.model

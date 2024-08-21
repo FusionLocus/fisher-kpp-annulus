@@ -1,25 +1,28 @@
 #Postprocessing utilities - collection of functions useful for running FENICs simulations.
-from fenics import *
+import adios4dolfinx
+from dolfinx import fem
+from basix.ufl import element
+import configparser
+from mpi4py import MPI
 import numpy as np
 import os
 from csv import writer
 import math
 
-def get_derivative(u, space):
+def get_derivative(u):
     """Function for grabbing derivatives in the x and y direction of a FENICs
     function (ie. it is grad). Relies on the existence of an appropriate FENICs
     FunctionSpace for the derivatives.
 
     Arguments:
         u (FENICs function) - function to take derivatives of.
-        Q (FENICs function space) - space to evaluate the derivatives in.
 
     Returns:
         udx (FENICs function) - derivative of u in x direction.
         udy (FENICs function) - derivative of u in y direction.
     """
-    udx = project(u.dx(0), space)
-    udy = project(u.dx(1), space)
+    udx = u.dx(0)
+    udy = u.dx(1)
 
     return udx, udy
 
@@ -43,86 +46,57 @@ def get_curvature(u, space):
 
     return kappa
 
-def extract_coordinates(u, mesh, space, annulus=True):
-    """Extracts the coordinates of the entire mesh, and the values of a function on it.
 
-    The order of all the outputs is consistent, which is the point of making this function.
-    
-    Arguments:
-        u (FENICs function) - fenics function defined on space.
-        mesh (DOLFIN mesh) - mesh upon which u can be evaluated.
-        space (FENICs Sobolev space) - space upon which to evaluate u.
-        annulus (bool, default True) - hack to remove a point from the annulus mesh that is unphysical.
-    
-    Returns:
-        dof_x (numpy array) - list of x values of all coordinates.
-        dof_y (numpy array) - list of y values of all coordinates.
-        nodal_values (numpy array) - list of values of u evaluated at all coordinates.
-    """
-    
-    # Get dimension of the space.
-    n = space.dim()
-    d = mesh.geometry().dim()
+# def extract_coordinates(u, mesh, space, annulus=True):
+#     """Extracts the coordinates of the entire mesh, and the values of a function on it.
 
-    # Change mesh coordinates into an ordered list by coordinate
-    dof_coordinates = mesh.coordinates()
-    dof_coordinates.resize((n, d))
-    dof_x = dof_coordinates[:, 0]
-    dof_y = dof_coordinates[:, 1]
+#     The order of all the outputs is consistent, which is the point of making this function.
     
-    if not annulus:
-        # Get nodal values of u.
-        u_vals = u.compute_vertex_values()
+#     Arguments:
+#         u (FENICs function) - fenics function defined on space.
+#         mesh (DOLFIN mesh) - mesh upon which u can be evaluated.
+#         space (FENICs Sobolev space) - space upon which to evaluate u.
+#         annulus (bool, default True) - hack to remove a point from the annulus mesh that is unphysical.
     
-     # Hack to get rid of the point at zero - specific to my annulus mesh.
-    if annulus:
-        # Get nodal values of u.
-        u_proj = project(u, space)
-        nodal_values = np.round(u_proj.vector().get_local(), decimals=5)
-        u_vals = nodal_values[vertex_to_dof_map(space)]
-        dof_x = np.delete(dof_x, 4)
-        dof_y = np.delete(dof_y, 4)
-        u_vals = np.delete(u_vals, 4)
+#     Returns:
+#         dof_x (numpy array) - list of x values of all coordinates.
+#         dof_y (numpy array) - list of y values of all coordinates.
+#         nodal_values (numpy array) - list of values of u evaluated at all coordinates.
+#     """
     
-    # Remove nans if there are any.
-    nans = np.isnan(u_vals)
-    
-    dof_x = dof_x[np.logical_not(nans)]
-    dof_y = dof_y[np.logical_not(nans)]
-    u_vals = u_vals[np.logical_not(nans)]
+#     space.tabulate
+#     # Get dimension of the space.
+#     n = space.dim()
+#     d = mesh.geometry().dim()
 
-    return dof_x, dof_y, u_vals
-
-def extract_coordinates_3d(u, mesh, space):
-    # Get dimension of the space.
-    n = space.dim()
-    d = mesh.geometry().dim()
-
-    # Change mesh coordinates into an ordered list by coordinate
-    dof_coordinates = mesh.coordinates()
-    dof_coordinates.resize((n, d))
-    dof_x = dof_coordinates[:, 0]
-    dof_y = dof_coordinates[:, 1]
-    dof_z = dof_coordinates[:, 2]
+#     # Change mesh coordinates into an ordered list by coordinate
+#     dof_coordinates = mesh.coordinates()
+#     dof_coordinates.resize((n, d))
+#     dof_x = dof_coordinates[:, 0]
+#     dof_y = dof_coordinates[:, 1]
     
-    # Get nodal values of u.
-    u_proj = project(u, space)
-    nodal_values = np.round(u_proj.vector().get_local(), decimals=5)
-    u_vals = nodal_values[vertex_to_dof_map(space)]
-    dof_x = np.delete(dof_x, slice(6, 8))
-    dof_y = np.delete(dof_y, slice(6, 8))
-    dof_z = np.delete(dof_z, slice(6, 8))
-    u_vals = np.delete(u_vals, slice(6, 8))
+#     if not annulus:
+#         # Get nodal values of u.
+#         u_vals = u.compute_vertex_values()
     
-    # Remove nans if there are any.
-    nans = np.isnan(u_vals)
+#      # Hack to get rid of the point at zero - specific to my annulus mesh.
+#     if annulus:
+#         # Get nodal values of u.
+#         u_proj = project(u, space)
+#         nodal_values = np.round(u_proj.vector().get_local(), decimals=5)
+#         u_vals = nodal_values[vertex_to_dof_map(space)]
+#         dof_x = np.delete(dof_x, 4)
+#         dof_y = np.delete(dof_y, 4)
+#         u_vals = np.delete(u_vals, 4)
     
-    dof_x = dof_x[np.logical_not(nans)]
-    dof_y = dof_y[np.logical_not(nans)]
-    dof_z = dof_z[np.logical_not(nans)]
-    u_vals = u_vals[np.logical_not(nans)]
+#     # Remove nans if there are any.
+#     nans = np.isnan(u_vals)
+    
+#     dof_x = dof_x[np.logical_not(nans)]
+#     dof_y = dof_y[np.logical_not(nans)]
+#     u_vals = u_vals[np.logical_not(nans)]
 
-    return dof_x, dof_y, dof_z, u_vals
+#     return dof_x, dof_y, u_vals
 
 
 def get_indices_isoline(u, mesh, space, iso=0.5, thresh=0.005, annulus=True):
@@ -212,6 +186,23 @@ def calculate_isoline_properties_rect(u, mesh, space, iso_idxs):
 
     return kappa_vals
 
+
+def prepare_objects(config, filepath):
+    
+    soln_file = filepath + 'soln.bp'
+
+    times = np.linspace(
+        config.getfloat('sim.times', 't0'),
+        config.getfloat('sim.times', 'tf'),
+        int(config.getint('sim.times', 'n_t')/100)+1
+    )
+
+    msh = adios4dolfinx.read_mesh(soln_file, MPI.COMM_WORLD)
+    V = fem.functionspace(msh, element(config['sim']['element_type'], msh.basix_cell(), config.getint('sim.times', 'degree')))
+    coords = V.tabulate_dof_coordinates()
+    u = fem.Function(V)
+
+    return coords, u, V, times, soln_file, msh
 
 
 
