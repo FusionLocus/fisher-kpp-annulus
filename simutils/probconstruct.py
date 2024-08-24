@@ -132,6 +132,7 @@ class FisherProblem():
             t += self.dt
             
             self.solver.solve(self.u)
+            self.u.x.scatter_forward()
             umin = np.min(self.u.x.array)
             umax = np.max(self.u.x.array)
             if MPI.COMM_WORLD.rank == 0:
