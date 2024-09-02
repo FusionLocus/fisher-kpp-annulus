@@ -29,13 +29,16 @@ class FisherProblem():
 
         return
 
-    def get_mesh(self, bypass=False):
+    def get_mesh(self, bypass=None):
         
-        if self.params['case'] == 'annulus':
-            model = make_annulus(self.params)
-        
-        elif self.params['case'] == 'rectangle':
-            model = make_rectangle(self.params)
+        if bypass is not None:
+            model = bypass
+        else:
+            if self.params['case'] == 'annulus':
+                model = make_annulus(self.params)
+            
+            elif self.params['case'] == 'rectangle':
+                model = make_rectangle(self.params)
 
         msh, cell_tags, facet_tags = model_to_mesh(model, 
                                 MPI.COMM_WORLD,
@@ -121,7 +124,7 @@ class FisherProblem():
 
         return
 
-    def run_simulation(self, verbose=True, logger=None, save_at_end=False):
+    def run_simulation(self, verbose=True, logger=None, save_sparse=False):
         t = self.params['t0']
         if not verbose and logger is not None:
             if MPI.COMM_WORLD.rank == 0:
@@ -141,15 +144,20 @@ class FisherProblem():
                 elif not verbose and logger is not None:
                     logger.info(f'Iterating, t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
 
-            if not save_at_end:
+            if not save_sparse:
                 adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
+
+            elif np.any(np.isclose(np.round(t, 4), np.array([0, 0.5, 1, 1.5, 2, 2.5, 3]))):
+                adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
+                if MPI.COMM_WORLD.rank == 0:
+                    if verbose:
+                        print(f'Sparse saving... t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+                    elif not verbose and logger is not None:
+                        logger.info(f'Sparse saving... t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
 
             self.u_n.x.array[:] = self.u.x.array
 
-        if save_at_end:
-            adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
-            if MPI.COMM_WORLD.rank == 0:
-                logger.info(f'Saving at end of simulation only. t={t:.2f}, umax={umax:.4f}, umin={umin:.4f}')
+            
         
         return
     

@@ -32,7 +32,7 @@ def produce_contour_plots(config, filepath):
     else:
         annulus=False
 
-    for t in [0, 2.5]:
+    for t in [0, 0.5, 1, 1.5, 2, 2.5, 3.0]:
 
         adios4dolfinx.read_function(soln_file, u, time=np.round(t, 4), name='u')
         u_vals = u.x.array
@@ -42,8 +42,8 @@ def produce_contour_plots(config, filepath):
 
 if __name__ == '__main__':
 
-    filepath = './realisations/parameter-sweep/' #kbar-epsilon/'
+    filepath = './realisations/parameter-sweep-kbar-epsilon-higherres/' #kbar-epsilon/'
     config = configparser.ConfigParser()
     config.read(filepath + 'config.ini')
 
-    produce_contour_plots(config, filepath + 'r0=0.20, delta=0.20/')
+    produce_contour_plots(config, filepath)

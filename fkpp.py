@@ -5,7 +5,7 @@ import ufl
 import numpy as np
 from simutils import probconstruct
 
-def run_simulation(config, verbose=True, logger=None, save_at_end=False):
+def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_bypass=None):
     ###### Handle parameter inputs #####
     parameters = {}
 
@@ -27,16 +27,17 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False):
         parameters[param] = config.getfloat('param', param)
 
     fisher_sim = probconstruct.FisherProblem(parameters)
-    fisher_sim.get_mesh()
+    fisher_sim.get_mesh(bypass=mesh_bypass)
     fisher_sim.setup_dirichlet_bc(lambda x: np.logical_and(np.isclose(x[0], 0), x[1] >= 0))
     fisher_sim.setup_fkpp_problem()
     fisher_sim.setup_solution_file()
     fisher_sim.setup_solver()
     fisher_sim.run_simulation(verbose=verbose, logger=logger,
-                              save_at_end=save_at_end)
+                              save_sparse=save_at_end)
 
+    return fisher_sim.msh
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./realisations/base-halfannulus/config.ini')
-    run_simulation(config)
+    config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
+    run_simulation(config, save_at_end=True)

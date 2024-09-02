@@ -10,7 +10,7 @@ import logging
 
 
 config = configparser.ConfigParser()
-config.read('./realisations/parameter-sweep/config.ini')
+config.read('./realisations/parameter-sweep-evenhigherres/config.ini')
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ delta_vals = np.linspace(delta_min, delta_max, num=n_delta)
 for r0_val in r0_vals:
     for delta_val in delta_vals:
         r0_delta_str = f'r0={r0_val:.2f}, delta={delta_val:.2f}'
-        if r0_val - delta_val/2 <= 0:
+        if np.round(r0_val - delta_val/2, 4) <= 0:
             if MPI.COMM_WORLD.rank == 0:
                 logging.info(f'Skipping: No longer annulus geometry with ' + r0_delta_str)
                 print(f'Skipping: No longer annulus geometry with ' + r0_delta_str)
@@ -63,7 +63,7 @@ for r0_val in r0_vals:
                     req = comm.isend('hi', dest=0)
                     req.wait()
                     
-                run_simulation(config, verbose=False, logger=logger)
+                run_simulation(config, verbose=False, logger=logger, save_at_end=True)
 
             else:
                 if MPI.COMM_WORLD.rank == 0:

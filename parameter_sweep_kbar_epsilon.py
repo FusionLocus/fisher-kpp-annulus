@@ -10,7 +10,7 @@ import logging
 
 
 config = configparser.ConfigParser()
-config.read('./realisations/parameter-sweep-kbar-epsilon/config.ini')
+config.read('./realisations/parameter-sweep-kbar-epsilon-evenhigherres/config.ini')
 
 
 logger = logging.getLogger(__name__)
@@ -32,9 +32,12 @@ k_max = config.getfloat('param.k', 'maximum')
 n_k = config.getint('param.k', 'n')
 
 comm = MPI.COMM_WORLD
+if k_min < 0:
+    k_vals = np.logspace(k_min, k_max, num=n_k)
+else:
+    k_vals = np.linspace(k_min, k_max, num=n_k)
 
-k_vals = np.linspace(k_min, k_max, num=n_k)
-
+first_time = True
 for r0_val in r0_vals:
     for k_val in k_vals:
         r0_k_str = f'r0={r0_val:.2f}, k={k_val:.2f}'
@@ -62,8 +65,16 @@ for r0_val in r0_vals:
                 else:
                     req = comm.isend('hi', dest=0)
                     req.wait()
-                    
-                run_simulation(config, verbose=False, logger=logger, save_at_end=True)
+
+                if first_time: 
+                    msh = run_simulation(config, verbose=False, 
+                               logger=logger, save_at_end=True
+                               )
+                    first_time = False
+                else:
+                    run_simulation(config, verbose=False, 
+                               logger=logger, save_at_end=True,
+                               mesh_bypass=None)
 
             else:
                 if MPI.COMM_WORLD.rank == 0:

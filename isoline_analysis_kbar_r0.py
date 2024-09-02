@@ -59,7 +59,7 @@ if __name__ == '__main__':
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
 
     config = configparser.ConfigParser()
-    config.read('./realisations/parameter-sweep-kbar-epsilon/config.ini')
+    config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
     time = 3.0000
 
     r0_min = config.getfloat('param.r0', 'minimum')
