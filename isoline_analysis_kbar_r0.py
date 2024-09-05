@@ -18,7 +18,7 @@ if __name__ == '__main__':
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
 
     config = configparser.ConfigParser()
-    config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
+    config.read('/home/fenicsx/fisher-kpp-annulus/realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
     time = 2.5
 
     r0_min = config.getfloat('param.r0', 'minimum')
@@ -56,8 +56,7 @@ if __name__ == '__main__':
     for r0_idx, r0_val in enumerate(r0_vals):
         for k_idx, k_val in enumerate(k_vals):
             r0_k_str = f'r0={r0_val:.2f}, k={k_val:.2f}'
-            r0_arc_str = f'r0={r0_val:.2f}, delta=0.00'
-            folder_path_arc = config['sim']['output_dir_main'][:-1] + '-arcs/' + r0_arc_str + '/'
+            folder_path_arc = config['sim']['output_dir_main'][:-1] + '-arcs/' + r0_k_str + '/'
             iso_coords_arc = isoline_properties_single_simulation(config, folder_path_arc, time=2.5)
             if np.round(r0_val - delta_val/2, 4) <= 0:
                     print(f'Skipping: No longer annulus geometry with ' + r0_k_str)
@@ -71,6 +70,7 @@ if __name__ == '__main__':
 
                 iso_coords = isoline_properties_single_simulation(config, folder_path, time=time)
                 if iso_coords is None:
+                    print('No coordinates found.')
                     continue
                 dot_prod_rms = np.power(np.sum(np.power(iso_coords['nabla_u'], 2))/ iso_coords['nabla_u'].size, 0.5)
 
@@ -91,9 +91,10 @@ if __name__ == '__main__':
     #          r'$|\langle \omega_i \rangle - \omega_{r_0}|$', r'$\epsilon$']
     labels = [r'$S_1$', r'$S_2$', r'$S_3$', r'$\epsilon$']
 
-    plot_all_metrics(quantities, labels, 
+    plot_all_metrics(quantities, labels, r0_vals, np.log10(k_vals),
                      x_label=r'$r_0$', y_label=r'$\log_{10}\bar{k}$')
-
+    
+    """
     fig, axs = plt.subplots(figsize=set_size('thesis'))
     cmap = mpl.colormaps.get_cmap('inferno')  # viridis is the default colormap for imshow
     cmap.set_bad(color='grey')
@@ -207,5 +208,5 @@ if __name__ == '__main__':
     fig, axs = plt.subplots()
     plt.hist(n_isopoints, bins=20)
     plt.savefig('iso_points_distribution.pdf')
-
+    """
 

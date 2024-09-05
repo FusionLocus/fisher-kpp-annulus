@@ -77,7 +77,7 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
 
         return coord_dict
 
-def plot_all_metrics(quantities, labels, cmap=mpl.colormaps.get_cmap('inferno'), 
+def plot_all_metrics(quantities, labels, r0_vals, delta_vals, cmap=mpl.colormaps.get_cmap('inferno'), 
                      padding_factor=1.4, x_label='', y_label=''):
         cmap.set_bad(color='grey')
         fig, axs = plt.subplots(nrows=2, 
@@ -195,10 +195,10 @@ if __name__ == '__main__':
     #          r'$|\langle \omega_i \rangle - \omega_{r_0}|$', r'$\epsilon$']
     labels = [r'$S_1$', r'$S_2$', r'$S_3$', r'$\epsilon$']
     
-    plot_all_metrics(quantities, labels, 
+    plot_all_metrics(quantities, labels, r0_vals, delta_vals,
                      x_label=r'$r_0$', y_label=r'$\delta$')
 
-
+"""
 fig, ax = plt.subplots()
 
 cmap = mpl.colormaps.get_cmap('inferno')  # viridis is the default colormap for imshow
@@ -220,7 +220,7 @@ ax.set_yticks(ticks= np.arange(0, delta_vals.size, step = 2),
 fig.colorbar(im, ax=ax)
 plt.savefig('drtheta_delta_r0.pdf')
 
-"""
+
 ax = axs[0, 1]
     cmap = mpl.colormaps.get_cmap('inferno')  # viridis is the default colormap for imshow
     cmap.set_bad(color='grey')
