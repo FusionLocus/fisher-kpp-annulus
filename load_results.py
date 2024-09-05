@@ -46,4 +46,4 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(filepath + 'config.ini')
 
-    produce_contour_plots(config, filepath)
+    produce_contour_plots(config, filepath + 'r0=2.00, delta=2.00/')

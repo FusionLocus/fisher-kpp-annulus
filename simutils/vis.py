@@ -187,7 +187,7 @@ def color_assign_criteria(values, max_val, min_val):
 
     return modulator
 
-def set_size(width, fraction=1, subplots=(1, 1)):
+def set_size(width, fraction=1, subplots=(1, 1), padding_adjustment = 1):
     """Set figure dimensions to avoid scaling in LaTeX.
 
     Parameters
@@ -222,6 +222,6 @@ def set_size(width, fraction=1, subplots=(1, 1)):
     # Figure width in inches
     fig_width_in = fig_width_pt * inches_per_pt
     # Figure height in inches
-    fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
+    fig_height_in = padding_adjustment * fig_width_in * golden_ratio * (subplots[0] / subplots[1])
 
     return (fig_width_in, fig_height_in)

@@ -10,7 +10,7 @@ import logging
 
 
 config = configparser.ConfigParser()
-config.read('./realisations/parameter-sweep-evenhigherres/config.ini')
+config.read('./realisations/parameter-sweep-arcs-higherres/config.ini')
 
 
 logger = logging.getLogger(__name__)

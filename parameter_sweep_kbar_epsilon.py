@@ -8,9 +8,8 @@ from fkpp import run_simulation
 import os
 import logging
 
-
 config = configparser.ConfigParser()
-config.read('./realisations/parameter-sweep-kbar-epsilon-evenhigherres/config.ini')
+config.read('./realisations/parameter-sweep-kbar-epsilon-higherres-arcs/config.ini')
 
 
 logger = logging.getLogger(__name__)

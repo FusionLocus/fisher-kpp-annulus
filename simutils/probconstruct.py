@@ -39,6 +39,8 @@ class FisherProblem():
             
             elif self.params['case'] == 'rectangle':
                 model = make_rectangle(self.params)
+            elif self.params['case'] == 'arc':
+                model = make_arc(self.params)
 
         msh, cell_tags, facet_tags = model_to_mesh(model, 
                                 MPI.COMM_WORLD,
@@ -87,14 +89,19 @@ class FisherProblem():
         return
 
     def setup_dirichlet_bc(self, marker_func):
+        
+        if self.params['case'] == 'arc':
+            dim = 0
+        else:
+            dim = 1
 
         facets = mesh.locate_entities_boundary(
             self.msh,
-            dim=1,
+            dim=dim,
             marker= marker_func
         )
         dofs = fem.locate_dofs_topological(V=self.V, 
-                                           entity_dim=1,
+                                           entity_dim=dim,
                                            entities=facets)
 
         self.bc = fem.dirichletbc(value=ScalarType(self.params['u_d']), 
@@ -209,6 +216,35 @@ def make_annulus(params):
     #    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
     
     return gmsh.model
+
+def make_arc(params):
+
+    lc = params['lc']
+    r0 = params['r0']
+
+    gmsh.initialize()
+    # Arc points
+    factory = gmsh.model.geo
+
+    factory.addPoint(
+        0, r0, 0, lc, 1 # (x, y, z, lc, tag)
+    )
+
+    factory.addPoint(r0, 0, 0, lc, 2)
+    factory.addPoint(0, -r0, 0, lc, 3)
+
+    factory.addPoint(0, 0, 0, lc, 7)
+
+    # Implement the semi-circular arc
+    factory.addCircleArc(1, 7, 2, 1)
+    factory.addCircleArc(2, 7, 3, 2)
+    factory.synchronize()
+
+    gmsh.model.addPhysicalGroup(1, [1, 2], 9)
+    gmsh.model.mesh.generate(1)
+
+    return gmsh.model
+
 
 def make_rectangle(params):
 

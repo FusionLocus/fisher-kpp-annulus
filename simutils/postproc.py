@@ -198,7 +198,7 @@ def prepare_objects(config, filepath):
     )
 
     msh = adios4dolfinx.read_mesh(soln_file, MPI.COMM_WORLD)
-    V = fem.functionspace(msh, element(config['sim']['element_type'], msh.basix_cell(), config.getint('sim.times', 'degree')))
+    V = fem.functionspace(msh, element('DG', msh.basix_cell(), config.getint('sim.times', 'degree')))
     coords = V.tabulate_dof_coordinates()
     u = fem.Function(V)
 
