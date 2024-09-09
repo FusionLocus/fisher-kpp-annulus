@@ -10,8 +10,11 @@ from simutils.vis import set_size
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+class ScalarFormatterForceFormat(mpl.ticker.ScalarFormatter):
+     def _set_format(self):
+          self.format = '$%1.1f$'
 
-def isoline_properties_single_simulation(config, folder_path, time=None, annulus=True):
+def isoline_properties_single_simulation(config, folder_path, time=None, annulus=True, tol=0.005):
 
     coords, u, V, times, soln_file, msh = prepare_objects(config, folder_path)
     x = SpatialCoordinate(msh)
@@ -20,7 +23,7 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
         pass
 
     else:
-
+        #print(V.tabulate_dof_coordinates().shape)
         coord_dict = {}
         adios4dolfinx.read_function(soln_file, u, time=np.round(time, 4), name="u")
         # nabla u hat dot xhat
@@ -28,7 +31,8 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
             / sqrt(inner(grad(u), grad(u)))
         
         # dudt/ |nabla u|**2 * nabla u
-        speed = (div(grad(u)) + u*(1-u))/sqrt(inner(grad(u), grad(u)))
+        speed = (config.getfloat('param', 'D')*div(grad(u)) + \
+                 config.getfloat('param', 'k')*u*(1-u))/sqrt(inner(grad(u), grad(u)))
         tang_velocity = inner(speed *grad(u)/sqrt(inner(grad(u), grad(u))), as_vector(
             (-x[1]/(x[0]**2 + x[1]**2)**0.5, x[0]/(x[0]**2 + x[1]**2)**0.5, x[2])
         ))
@@ -53,7 +57,7 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
             r0 = (np.max(coords[:, 0]) + np.min(coords[:, 0]))/2
             delta = np.max(coords[:, 0]) - np.min(coords[:, 0])
             print(np.min(u.x.array[:]), r0, delta)
-        mask = np.abs(u_vals - 0.5) < 0.005
+        mask = np.abs(u_vals - 0.5) < tol
 
         iso_coords = coords[mask, :]
         coord_dict['x'], coord_dict['y'] = iso_coords[:, 0], iso_coords[:, 1]
@@ -71,9 +75,14 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
             vel[:, 0] = w3.x.array[mask]
 
             coord_dict['r'], coord_dict['th'] = iso_r, iso_th
-            coord_dict['nabla_u'] = nabla_u
-            coord_dict['speed'] = speed
+            
             coord_dict['tang_velocity'] = vel
+
+            coord_dict['nabla_u'] = nabla_u
+        
+        speed = np.zeros((coord_dict['x'].size, 1))
+        speed[:, 0] = w2.x.array[mask]
+        coord_dict['speed'] = speed
 
         return coord_dict
 
@@ -97,7 +106,7 @@ def plot_all_metrics(quantities, labels, r0_vals, delta_vals, cmap=mpl.colormaps
                 row, col = 1, 1
 
             ax = axs[row, col]
-            
+            ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
             im = ax.imshow(quantity.T, 
                     interpolation='none',
                     cmap=cmap,
@@ -108,16 +117,27 @@ def plot_all_metrics(quantities, labels, r0_vals, delta_vals, cmap=mpl.colormaps
                     labels=[fr'${r0:.1f}$' for r0 in r0_vals[::2]])
 
             ax.set_yticks(ticks= np.arange(0, delta_vals.size, step = 2), 
-                    labels=[fr'${delta:.1f}$' for delta in delta_vals[::2]])
-            cb = fig.colorbar(im, ax=ax)
-
+                    labels=[fr'${delta:.2f}$' for delta in delta_vals[::2]])
+            yfmt = ScalarFormatterForceFormat(
+            )
+            yfmt.set_powerlimits((0, 0))
+            yfmt.useMathText = True
+            cb = fig.colorbar(im, ax=ax,
+                              #format=mpl.ticker.FuncFormatter(lambda x, pos : rf'${x:.2e}$')
+                              format=yfmt
+                              )
             cb.locator = mpl.ticker.LinearLocator(numticks=3)
-            cb.ax.ticklabel_format(style='sci', scilimits=(0, 0))
+            #cb.ax.ticklabel_format(style='sci', scilimits=(0, 0))
             cb.update_ticks()
             ax.title.set_text(label)
 
         fig.text(0.5, 0.04, x_label, ha='center')
-        fig.text(0.04, 0.5, y_label, ha='center')
+        fig.text(0.04, 0.45, y_label, ha='center', rotation='vertical')
+        fig.text(0.08, 0.88, r'\textbf{a}')
+        fig.text(0.52, 0.88, r'\textbf{b}')
+        fig.text(0.08, 0.45, r'\textbf{c}')
+        fig.text(0.52, 0.45, r'\textbf{d}')
+        
         plt.subplots_adjust(wspace=0.3, hspace=(padding_factor-1)/padding_factor)
         plt.savefig('all_metrics_delta_r0.pdf', bbox_inches='tight')
         return
@@ -159,7 +179,7 @@ if __name__ == '__main__':
     for r0_idx, r0_val in enumerate(r0_vals):
         r0_arc_str = f'r0={r0_val:.2f}, delta=0.00'
         folder_path_arc = config['sim']['output_dir_main'][:-1] + '-arcs/' + r0_arc_str + '/'
-        iso_coords_arc = isoline_properties_single_simulation(config, folder_path_arc, time=2.5)
+        iso_coords_arc = isoline_properties_single_simulation(config, folder_path_arc, time=2.5, tol=0.01)
         
         for delta_idx, delta_val in enumerate(delta_vals):
             r0_delta_str = f'r0={r0_val:.2f}, delta={delta_val:.2f}'
@@ -173,7 +193,7 @@ if __name__ == '__main__':
 
                 folder_path = config['sim']['output_dir_main'] + r0_delta_str + '/'
 
-                iso_coords = isoline_properties_single_simulation(config, folder_path, time=2.5)
+                iso_coords = isoline_properties_single_simulation(config, folder_path, time=2.5, tol=0.01)
                 dot_prod_rms = np.power(np.sum(np.power(iso_coords['nabla_u'], 2))/ iso_coords['nabla_u'].size, 0.5)
 
                 max_idx, min_idx = np.argmax(iso_coords['r']), np.argmin(iso_coords['r'])
@@ -186,7 +206,9 @@ if __name__ == '__main__':
                 drtheta[r0_idx, delta_idx] = np.abs(iso_coords['r'][max_idx]*iso_coords['th'][max_idx] \
                                                     - iso_coords['r'][min_idx]*iso_coords['th'][min_idx])
 
-                dspeed[r0_idx, delta_idx] = np.abs(np.mean(iso_coords['tang_velocity']/iso_coords['r']) - np.mean(iso_coords_arc['tang_velocity'])/r0_val)
+                dspeed[r0_idx, delta_idx] = np.abs(np.mean(iso_coords['tang_velocity']/iso_coords['r']) -  \
+                                                   np.mean(iso_coords_arc['tang_velocity'])/r0_val) / \
+                                                   (np.mean(iso_coords_arc['tang_velocity'])/r0_val)
 
 
     

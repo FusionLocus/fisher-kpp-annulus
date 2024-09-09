@@ -6,6 +6,7 @@ import numpy as np
 from mpi4py import MPI
 from simutils.vis import arrange_contour_plot
 import matplotlib.pyplot as plt
+from isoline_analysis_delta_r0 import isoline_properties_single_simulation
 
 def produce_contour_plots(config, filepath):
     soln_file = filepath + 'soln.bp'
@@ -17,7 +18,7 @@ def produce_contour_plots(config, filepath):
     )
 
     msh = adios4dolfinx.read_mesh(soln_file, MPI.COMM_WORLD)
-    V = fem.functionspace(msh, element(config['sim']['element_type'], msh.basix_cell(), config.getint('sim.times', 'degree')))
+    V = fem.functionspace(msh, element('DG', msh.basix_cell(), 0))
     coords = V.tabulate_dof_coordinates()
     u = fem.Function(V)
 
@@ -32,7 +33,7 @@ def produce_contour_plots(config, filepath):
     else:
         annulus=False
 
-    for t in [0, 0.5, 1, 1.5, 2, 2.5, 3.0]:
+    for t in np.linspace(0, 12, num=25):
 
         adios4dolfinx.read_function(soln_file, u, time=np.round(t, 4), name='u')
         u_vals = u.x.array
@@ -42,8 +43,14 @@ def produce_contour_plots(config, filepath):
 
 if __name__ == '__main__':
 
-    filepath = './realisations/parameter-sweep-kbar-epsilon-higherres/' #kbar-epsilon/'
+    filepath = './realisations/base-rectangle/' #kbar-epsilon/'
     config = configparser.ConfigParser()
     config.read(filepath + 'config.ini')
 
-    produce_contour_plots(config, filepath + 'r0=2.00, delta=2.00/')
+    #produce_contour_plots(config, filepath)
+    for t in np.linspace(0, 12, num=25):
+        coord_dict = isoline_properties_single_simulation(config, filepath, time=t, annulus=False)
+        fig, ax = plt.subplots()
+        ax.scatter(coord_dict['y'], coord_dict['x']-np.mean(coord_dict['x']), marker='x')
+        plt.savefig(filepath + f'test-{t:.2f}.pdf')
+        plt.close(fig)

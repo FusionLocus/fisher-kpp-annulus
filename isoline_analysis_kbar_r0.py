@@ -18,8 +18,9 @@ if __name__ == '__main__':
     plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
 
     config = configparser.ConfigParser()
-    config.read('/home/fenicsx/fisher-kpp-annulus/realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
+    config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
     time = 2.5
+    tol = 0.005
 
     r0_min = config.getfloat('param.r0', 'minimum')
     r0_max = config.getfloat('param.r0', 'maximum')
@@ -56,26 +57,28 @@ if __name__ == '__main__':
     for r0_idx, r0_val in enumerate(r0_vals):
         for k_idx, k_val in enumerate(k_vals):
             r0_k_str = f'r0={r0_val:.2f}, k={k_val:.2f}'
+            config['param']['k'] = str(k_val)
+            config['geometry']['r0'] = str(r0_val)
             folder_path_arc = config['sim']['output_dir_main'][:-1] + '-arcs/' + r0_k_str + '/'
-            iso_coords_arc = isoline_properties_single_simulation(config, folder_path_arc, time=2.5)
+            iso_coords_arc = isoline_properties_single_simulation(config, folder_path_arc, time=2.5, tol=tol)
             if np.round(r0_val - delta_val/2, 4) <= 0:
                     print(f'Skipping: No longer annulus geometry with ' + r0_k_str)
                     all_norms[r0_idx, k_idx] = np.nan
 
             else:
-                config['param']['k'] = str(k_val)
-                config['geometry']['r0'] = str(r0_val)
+            
 
                 folder_path = config['sim']['output_dir_main'] + r0_k_str + '/'
 
-                iso_coords = isoline_properties_single_simulation(config, folder_path, time=time)
+                iso_coords = isoline_properties_single_simulation(config, folder_path, time=time, tol=tol)
                 if iso_coords is None:
                     print('No coordinates found.')
                     continue
                 dot_prod_rms = np.power(np.sum(np.power(iso_coords['nabla_u'], 2))/ iso_coords['nabla_u'].size, 0.5)
 
                 max_idx, min_idx = np.argmax(iso_coords['r']), np.argmin(iso_coords['r'])
-                print(r0_val, delta_val, np.max(iso_coords['th']), np.min(iso_coords['th']))
+                print(r0_val, delta_val, np.max(iso_coords['th']), np.min(iso_coords['th']),
+                      k_val, iso_coords['r'].size, iso_coords_arc['r'].size)
 
                 dtheta[r0_idx, k_idx] = np.abs(np.max(iso_coords['th']) - np.min(iso_coords['th']))
                 
@@ -84,14 +87,15 @@ if __name__ == '__main__':
                 drtheta[r0_idx, k_idx] = np.abs(iso_coords['r'][max_idx]*iso_coords['th'][max_idx] \
                                                     - iso_coords['r'][min_idx]*iso_coords['th'][min_idx])
 
-                dspeed[r0_idx, k_idx] = np.abs(np.mean(iso_coords['tang_velocity']/iso_coords['r']) - np.mean(iso_coords_arc['tang_velocity'])/r0_val)
+                dspeed[r0_idx, k_idx] = np.abs(np.mean(iso_coords['tang_velocity']/iso_coords['r']) - np.mean(iso_coords_arc['tang_velocity'])/r0_val) \
+                                        / (np.mean(iso_coords_arc['tang_velocity'])/r0_val)
 
     quantities = [all_norms, dtheta, dspeed, epsilons]
     #labels = ['Curvature penalisation', r'$|\theta_{\delta/2} - \theta_{-\delta/2}$',
     #          r'$|\langle \omega_i \rangle - \omega_{r_0}|$', r'$\epsilon$']
     labels = [r'$S_1$', r'$S_2$', r'$S_3$', r'$\epsilon$']
 
-    plot_all_metrics(quantities, labels, r0_vals, np.log10(k_vals),
+    plot_all_metrics(quantities, labels, r0_vals, np.log10(kbar_vals),
                      x_label=r'$r_0$', y_label=r'$\log_{10}\bar{k}$')
     
     """

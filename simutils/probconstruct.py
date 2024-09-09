@@ -30,7 +30,7 @@ class FisherProblem():
         return
 
     def get_mesh(self, bypass=None):
-        
+        print(MPI.COMM_WORLD.rank)
         if bypass is not None:
             model = bypass
         else:
@@ -43,8 +43,9 @@ class FisherProblem():
                 model = make_arc(self.params)
 
         msh, cell_tags, facet_tags = model_to_mesh(model, 
-                                MPI.COMM_WORLD,
-                                0)
+                            MPI.COMM_WORLD,
+                            0)
+
         
         self.element = element(self.params['element_type'], 
                                msh.basix_cell(),
@@ -137,6 +138,8 @@ class FisherProblem():
             if MPI.COMM_WORLD.rank == 0:
                 logger.info('Initialising simulation run...')
         adios4dolfinx.write_function(self.soln_file, self.u, time=t, name='u')
+        
+        close_times = np.linspace(0, self.params['tf'], num=int(2*self.params['tf'])+1)
 
         for n in range(self.params['n_t']):
             t += self.dt
@@ -154,7 +157,7 @@ class FisherProblem():
             if not save_sparse:
                 adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
 
-            elif np.any(np.isclose(np.round(t, 4), np.array([0, 0.5, 1, 1.5, 2, 2.5, 3]))):
+            elif np.any(np.isclose(np.round(t, 4), close_times)):
                 adios4dolfinx.write_function(self.soln_file, self.u, time=np.round(t, 4), name='u')
                 if MPI.COMM_WORLD.rank == 0:
                     if verbose:

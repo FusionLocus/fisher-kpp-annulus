@@ -11,7 +11,7 @@ import logging
 
 config = configparser.ConfigParser()
 config.read('./realisations/parameter-sweep-arcs-higherres/config.ini')
-
+dry_run = True
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename=config['sim']['output_dir_main'] + 'log.log',
