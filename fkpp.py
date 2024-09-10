@@ -42,5 +42,5 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./realisations/base-halfannulus/config.ini')
-    run_simulation(config, save_at_end=False, mesh_bypass= ,  dry_run=False)
+    config.read('./realisations/changing-r0-for-epsilon-0.67/config.ini')
+    run_simulation(config, save_at_end=False,  dry_run=False)
