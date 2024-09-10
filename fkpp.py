@@ -43,4 +43,4 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('./realisations/base-halfannulus/config.ini')
-    run_simulation(config, save_at_end=False, mesh_bypass= ,  dry_run=False)
+    run_simulation(config, save_at_end=True, dry_run=False)
