@@ -33,8 +33,8 @@ def produce_contour_plots(config, filepath):
     else:
         annulus=False
 
-    for t in np.linspace(0, 12, num=25):
-
+    for t in np.linspace(0, 3, num=7):
+        print(t)
         adios4dolfinx.read_function(soln_file, u, time=np.round(t, 4), name='u')
         u_vals = u.x.array
 
@@ -43,14 +43,14 @@ def produce_contour_plots(config, filepath):
 
 if __name__ == '__main__':
 
-    filepath = './realisations/base-rectangle/' #kbar-epsilon/'
+    filepath = './realisations/parameter-sweep-kbar-epsilon-higherres/' #kbar-epsilon/'
     config = configparser.ConfigParser()
     config.read(filepath + 'config.ini')
 
-    #produce_contour_plots(config, filepath)
-    for t in np.linspace(0, 12, num=25):
-        coord_dict = isoline_properties_single_simulation(config, filepath, time=t, annulus=False)
-        fig, ax = plt.subplots()
-        ax.scatter(coord_dict['y'], coord_dict['x']-np.mean(coord_dict['x']), marker='x')
-        plt.savefig(filepath + f'test-{t:.2f}.pdf')
-        plt.close(fig)
+    produce_contour_plots(config, filepath + 'r0=0.40, k=10.00/')
+    #for t in np.linspace(0, 12, num=25):
+    #    coord_dict = isoline_properties_single_simulation(config, filepath +'r0=0.40, k=10.00/', time=t, annulus=False)
+    #    fig, ax = plt.subplots()
+    #    ax.scatter(coord_dict['y'], coord_dict['x']-np.mean(coord_dict['x']), marker='x')
+    #    plt.savefig(filepath + f'test-{t:.2f}.pdf')
+    #    plt.close(fig)

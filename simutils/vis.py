@@ -103,7 +103,7 @@ def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0,
             # Normal
             ax1.set_xticks([0, (min_r+max_r)/2])
             ax1.set_xlim([0, max_r*1.1])
-            ax1.set_ylim([0, max_r*1.1])
+            ax1.set_ylim([-max_r*1.1, max_r*1.1])
             ax1.set_yticks([0, (min_r+max_r)/2])
         
         else:

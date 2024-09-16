@@ -57,6 +57,15 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
             r0 = (np.max(coords[:, 0]) + np.min(coords[:, 0]))/2
             delta = np.max(coords[:, 0]) - np.min(coords[:, 0])
             print(np.min(u.x.array[:]), r0, delta)
+            return None
+
+        lower_boundary_mask = np.logical_and(coords[:, 1] < 0, np.isclose(coords[:, 0], 0))
+        if np.any(u_vals[lower_boundary_mask] > 0.01):
+            r0 = (np.max(coords[:, 0]) + np.min(coords[:, 0]))/2
+            delta = np.max(coords[:, 0]) - np.min(coords[:, 0])
+            print(r0, delta, 'Simulation has boundary effect')
+            return None
+
         mask = np.abs(u_vals - 0.5) < tol
 
         iso_coords = coords[mask, :]
@@ -194,6 +203,8 @@ if __name__ == '__main__':
                 folder_path = config['sim']['output_dir_main'] + r0_delta_str + '/'
 
                 iso_coords = isoline_properties_single_simulation(config, folder_path, time=2.5, tol=0.01)
+                if iso_coords is None:
+                     continue
                 dot_prod_rms = np.power(np.sum(np.power(iso_coords['nabla_u'], 2))/ iso_coords['nabla_u'].size, 0.5)
 
                 max_idx, min_idx = np.argmax(iso_coords['r']), np.argmin(iso_coords['r'])

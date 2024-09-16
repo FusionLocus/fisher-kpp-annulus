@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     config = configparser.ConfigParser()
     config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
-    time = 2.5
+    time = 3.0
     tol = 0.005
 
     r0_min = config.getfloat('param.r0', 'minimum')
