@@ -4,7 +4,9 @@ import configparser
 import ufl
 import numpy as np
 from simutils import probconstruct
-
+import os
+from dolfinx import fem
+from basix.ufl import element
 def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_bypass=None, dry_run=False):
     ###### Handle parameter inputs #####
     parameters = {}
@@ -32,7 +34,8 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
     fisher_sim.setup_dirichlet_bc(lambda x: np.logical_and(np.isclose(x[0], 0), x[1] >= 0))
     fisher_sim.setup_fkpp_problem()
     if dry_run:
-        print(fisher_sim.V.tabulate_dof_coordinates().shape)
+        W = fem.functionspace(fisher_sim.msh, element('DG', fisher_sim.msh.basix_cell(), 0))
+        print(W.tabulate_dof_coordinates().shape)
         return
     fisher_sim.setup_solution_file()
     fisher_sim.setup_solver()
@@ -43,5 +46,5 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./realisations/gaussian-halfannulus/config.ini')
-    run_simulation(config, save_at_end=False,  dry_run=False)
+    config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/r0-0.40,k-10/config.ini')
+    run_simulation(config, save_at_end=True,  dry_run=False)

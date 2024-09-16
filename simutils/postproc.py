@@ -201,7 +201,7 @@ def prepare_objects(config, filepath):
     V = fem.functionspace(msh, element('DG', msh.basix_cell(), config.getint('sim.times', 'degree')))
     coords = V.tabulate_dof_coordinates()
     u = fem.Function(V)
-
+    print(f'Coords shape: {coords.shape}')
     return coords, u, V, times, soln_file, msh
 
 

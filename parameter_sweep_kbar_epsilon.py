@@ -9,7 +9,7 @@ import os
 import logging
 
 config = configparser.ConfigParser()
-config.read('./realisations/parameter-sweep-kbar-epsilon-higherres-arcs/config.ini')
+config.read('./realisations/parameter-sweep-kbar-epsilon-higherres/config.ini')
 
 
 logger = logging.getLogger(__name__)
