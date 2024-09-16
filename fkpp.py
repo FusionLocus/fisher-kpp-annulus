@@ -17,7 +17,8 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
     parameters['t0'] = config.getfloat('sim.times', 't0')
     parameters['tf'] = config.getfloat('sim.times', 'tf')
     parameters['u_d'] = config.getfloat('ic', 'u_d')
-    parameters['ic'] = lambda x : np.logical_and(np.isclose(x[0], 0), x[1] >= 0)*config.getfloat('ic', 'value')
+    parameters['ic_func'] = config['ic']['func']
+    print(parameters['ic_func'])
 
 
     for param in config['geometry']:
@@ -42,5 +43,5 @@ def run_simulation(config, verbose=True, logger=None, save_at_end=False, mesh_by
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./realisations/changing-delta-for-epsilon-1.0/config.ini')
-    run_simulation(config, save_at_end=True,  dry_run=False)
+    config.read('./realisations/gaussian-halfannulus/config.ini')
+    run_simulation(config, save_at_end=False,  dry_run=False)

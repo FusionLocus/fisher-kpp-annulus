@@ -50,7 +50,7 @@ class FisherProblem():
         self.element = element(self.params['element_type'], 
                                msh.basix_cell(),
                                self.params['degree'])
-
+        self.x = ufl.SpatialCoordinate(msh)
         self.msh = msh
         gmsh.finalize()
         # Define space, u at current and previous timestep
@@ -73,6 +73,12 @@ class FisherProblem():
 
         # For ease of notation, write u and v as references to their class definitions.
         u, u_n, v = self.u, self.u_n, self.v
+
+        x = self.x
+        if self.params['ic_func'] == 'gaussian':
+            self.params['ic'] = fem.Expression(ufl.exp(-(x[0]*x[0]+(x[1]-1)*(x[1]-1))/0.05), self.V.element.interpolation_points(), MPI.COMM_WORLD)
+        else:
+            self.params['ic'] = lambda x : np.logical_and(np.isclose(x[0], 0), x[1] >= 0)*1.0
 
         # Give u and u_n their initial values (which we take to be the same).
         u.interpolate(self.params['ic'])
