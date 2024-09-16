@@ -23,9 +23,9 @@ def check_points(themesh, markers, idx):
 
     return 
 
-def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0, 
+def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, title, ax2=None, vmin=0, 
                          vmax=1, iso=0.5, annulus=True, plot_border=False, expensive=True,
-                         paper=False):
+                         paper=False, early_times=False):
     """Function for setting up contour plots. NB: lists of coordinates and values must be
     related correctly (ie. lengths the same and come in sets (x, y, u))
     
@@ -44,6 +44,8 @@ def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0,
     triang = tri.Triangulation(coords_x, coords_y)
     # Cut out points below a minimum radius so they aren't plotted
     # This will need modified for a non-annular/radially symmetric mesh
+    low_u_mask = u_vals < 0.0001
+    u_vals[low_u_mask] = 0.0001
     if annulus:
         min_r = np.sqrt(np.min(np.power(coords_x, 2) + np.power(coords_y, 2)))
         max_r = np.sqrt(np.max(np.power(coords_x[coords_x > 0], 2) + np.power(coords_y[coords_x > 0], 2)))
@@ -61,30 +63,37 @@ def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0,
         max_y_points_y = np.ones_like(x_points) * max_y
         min_y_points_y = np.ones_like(x_points) * 0
 
-    levels = np.linspace(0, vmax, 500)
+
+    levels = np.linspace(0, vmax, 101)
     if not expensive:
         refiner = tri.UniformTriRefiner(triang)
         tri_refi, u_test_refi = refiner.refine_field(u_vals, subdiv=1)
 
-        cntr = ax1.tricontourf(tri_refi, u_test_refi, levels=levels, cmap='plasma', extend='neither')
+        cntr = ax1.tricontour(tri_refi, u_test_refi, levels=levels, cmap='plasma', extend='neither')
 
         clbr = plt.colorbar(cntr, cax=ax2, extend='neither')
     else:
 
-        u_vals = np.round(u_vals, 6)
-        cntr = ax1.tricontourf(triang, u_vals, levels=levels, cmap='plasma', extend='neither')
-
-        clbr = plt.colorbar(cntr, cax=ax2, norm=(0, vmax), extend='neither')
+        u_vals = np.round(u_vals, 4)
+        cntr = ax1.tricontourf(triang, u_vals, levels=levels, cmap='plasma', extend='neither', antialiased=False)
+        if ax2 is not None:
+            clbr = plt.colorbar(cntr, cax=ax2, norm=(0, vmax), extend='neither')
     
+    if iso is not None:
+        iso_mask = np.abs(u_vals - 0.5) < 0.005
+        iso_x = coords_x[iso_mask]
+        iso_y = coords_y[iso_mask]
+        sort_key = np.argsort(np.power(iso_x, 2) + np.power(iso_y, 2))
+        ax1.plot(iso_x[sort_key], iso_y[sort_key], color='black', linewidth=0.6) # marker='.', s=1
 
-    
     if plot_border:
         if annulus:
-            ax1.plot(min_r_points_x, min_r_points_y, color='black')
-            ax1.plot(max_r_points_x, max_r_points_y, color='black')
+            ax1.plot(min_r_points_x, min_r_points_y, color='grey', linewidth=0.6)
+            ax1.plot(max_r_points_x, max_r_points_y, color='grey', linewidth=0.6)
         else:
-            ax1.plot(x_points, min_y_points_y, color='black')
-            ax1.plot(x_points, max_y_points_y, color='black')
+            ax1.plot(x_points, min_y_points_y, color='grey', linewidth=0.6)
+            ax1.plot(x_points, max_y_points_y, color='grey', linewidth=0.6)
+    
         
     
     #clbr.boundaries = [0, 2]
@@ -95,28 +104,45 @@ def arrange_contour_plot(coords_x, coords_y, u_vals, ax1, ax2, title, vmin=0,
     if paper:
         ax1.set_title('')
         if annulus:
-            # Close up
-            #ax1.set_xticks([0, 0.25, 0.5])
-            #ax1.set_xlim([0, 0.5])
-            #ax1.set_ylim([0.75, 1.25])
-            #ax1.set_yticks([0.75, 1, 1.25])
-            # Normal
-            ax1.set_xticks([0, (min_r+max_r)/2])
-            ax1.set_xlim([0, max_r*1.1])
-            ax1.set_ylim([-max_r*1.1, max_r*1.1])
-            ax1.set_yticks([0, (min_r+max_r)/2])
+            if early_times:
+                # Close up
+                #ax1.set_xticks([0, 0.25, 0.5])
+                ax1.set_xticks([])
+                ax1.set_xlim([0, 0.5])
+                ax1.set_ylim([0.725, 1.275])
+                #ax1.set_yticks([0.75, 1, 1.25])
+                ax1.set_yticks([])
+                plt.subplots_adjust(wspace=0.1, hspace=0.03)
+            else:
+                # Normal
+                ax1.set_xticks([0, (min_r+max_r)/2])
+                ax1.set_xticklabels([r'$0$', r'$1$'])
+                #ax1.set_xticklabels([])
+                ax1.set_xlim([0, 1.2*1.1*3.2*3.8/(3*0.728*4.4)]) # 1.896
+                ax1.set_ylim([0, 1.2*1.1])
+                ax1.set_yticks([0, (min_r+max_r)/2])
+                ax1.set_yticklabels([r'$0$', r'$1$'])
+                #ax1.set_yticklabels([])
+                #plt.subplots_adjust(wspace=0.15)
         
         else:
-            ax1.set_xticks([0, 1.5])
-            ax1.set_xlim([0, 1.570796])
-            ax1.set_ylim([0, 1.1*max_y])
-            ax1.set_yticks([0, max_y])
+            ax1.set_xticks([0, 1])
+            ax1.set_xlim([0, 1.2*1.1])
+            ax1.set_ylim([0, 1.2*1.1])
+            ax1.set_yticks([])
+            ax1.set_xticklabels([r'$0$', r'$1$'])
+            ax1.yaxis.set_tick_params(width=5)
+            #ax1.set_xticklabels([])
+            #ax1.set_yticklabels([r'$0$', r'$0.32$'])
+            #plt.subplots_adjust(wspace=0.15)
             
-
-        ax2.set_yticks([0, 0.5, 1])
-        ax2.set_ylim([0, 1])
+        if ax2 is not None:
+            ax2.set_yticks([0, 0.5, 1])
+            ax2.set_ylim([0, 1])
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
+        ax1.spines['left'].set_visible(False)
+        ax1.spines['bottom'].set_visible(False)
         ax1.set_xlabel('')
         ax1.set_ylabel('')
     
