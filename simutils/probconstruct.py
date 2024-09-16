@@ -36,7 +36,9 @@ class FisherProblem():
         else:
             if self.params['case'] == 'annulus':
                 model = make_annulus(self.params)
-            
+            elif self.params['case'] == 'threequarter':
+                model = make_thqu(self.params)
+
             elif self.params['case'] == 'rectangle':
                 model = make_rectangle(self.params)
             elif self.params['case'] == 'arc':
@@ -219,6 +221,59 @@ def make_annulus(params):
 
     gmsh.model.addPhysicalGroup(1, [1, 2, 3, 4, 5, 6], 9)
     gmsh.model.addPhysicalGroup(2, [8], 10)
+
+    gmsh.model.mesh.generate(2)
+    #if MPI.COMM_WORLD.rank == 0:
+    #    gmsh.write(os.path.join(params['output_dir'], 'mesh.msh'))
+    
+    return gmsh.model
+
+def make_thqu(params):
+
+    lc = params['lc']
+    Ri = params['r0'] - params['delta']/2
+    Re = params['r0'] + params['delta']/2
+    
+    gmsh.initialize()
+    # Outer annulus arc points
+    factory = gmsh.model.geo
+
+    factory.addPoint(
+        0, Re, 0, lc, 1 # (x, y, z, lc, tag)
+    )
+
+    factory.addPoint(Re, 0, 0, lc, 2)
+    factory.addPoint(0, -Re, 0, lc, 3)
+    factory.addPoint(-Re, 0, 0, lc, 8)
+
+    # Inner annulus arc points
+    factory.addPoint(0, -Ri, 0, lc, 4)
+    factory.addPoint(Ri, 0, 0, lc, 5)
+    factory.addPoint(0, Ri, 0, lc, 6)
+    factory.addPoint(-Ri, 0, 0, lc, 9)
+    
+    # Centre of the annulus
+    factory.addPoint(0, 0, 0, lc, 7)
+
+    # Implement the annulus arcs and line boundaries
+    factory.addCircleArc(1, 7, 2, 1)
+    factory.addCircleArc(2, 7, 3, 2)
+    factory.addCircleArc(3, 7, 8, 3)
+    factory.addLine(8, 9, 4)
+    factory.addCircleArc(9, 7, 4, 5)
+    factory.addCircleArc(4, 7, 5, 6)
+    factory.addCircleArc(5, 7, 6, 7)
+    factory.addLine(6, 1, 8)
+
+    # Produce curve loop
+    factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8], 9)
+    factory.addPlaneSurface([9], 10)
+
+
+    factory.synchronize()
+
+    gmsh.model.addPhysicalGroup(1, [1, 2, 3, 4, 5, 6, 7, 8], 11)
+    gmsh.model.addPhysicalGroup(2, [10], 12)
 
     gmsh.model.mesh.generate(2)
     #if MPI.COMM_WORLD.rank == 0:
