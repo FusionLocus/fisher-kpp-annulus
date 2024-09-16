@@ -36,22 +36,22 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
         tang_velocity = inner(speed *grad(u)/sqrt(inner(grad(u), grad(u))), as_vector(
             (-x[1]/(x[0]**2 + x[1]**2)**0.5, x[0]/(x[0]**2 + x[1]**2)**0.5, x[2])
         ))
-        #W = fem.functionspace(msh, ('DG', 1))
-        expr_u_DG = fem.Expression(u, V.element.interpolation_points())
-        expr = fem.Expression(x_grad, V.element.interpolation_points())
-        expr2 = fem.Expression(speed, V.element.interpolation_points())
-        expr3 = fem.Expression(tang_velocity, V.element.interpolation_points())
+        W = fem.functionspace(msh, element('DG', msh.basix_cell(), 1))
+        expr_u_DG = fem.Expression(u, W.element.interpolation_points())
+        expr = fem.Expression(x_grad, W.element.interpolation_points())
+        expr2 = fem.Expression(speed, W.element.interpolation_points())
+        expr3 = fem.Expression(tang_velocity, W.element.interpolation_points())
         
-        u_DG = fem.Function(V)
-        w = fem.Function(V)
-        w2 = fem.Function(V)
-        w3 = fem.Function(V)
+        u_DG = fem.Function(W)
+        w = fem.Function(W)
+        w2 = fem.Function(W)
+        w3 = fem.Function(W)
 
         u_DG.interpolate(expr_u_DG)
         w.interpolate(expr)
         w2.interpolate(expr2)
         w3.interpolate(expr3)
-
+        coords = W.tabulate_dof_coordinates()
         u_vals = u_DG.x.array[:]
         if np.min(u_DG.x.array[:]) > 0.01:
             r0 = (np.max(coords[:, 0]) + np.min(coords[:, 0]))/2
@@ -65,7 +65,7 @@ def isoline_properties_single_simulation(config, folder_path, time=None, annulus
             delta = np.max(coords[:, 0]) - np.min(coords[:, 0])
             print(r0, delta, 'Simulation has boundary effect')
             return None
-
+        print('N dofs is ', W.tabulate_dof_coordinates().shape)
         mask = np.abs(u_vals - 0.5) < tol
 
         iso_coords = coords[mask, :]
@@ -160,6 +160,7 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('./realisations/parameter-sweep-higherres/config.ini')
     time = 2.5000
+    p = 2
 
     r0_min = config.getfloat('param.r0', 'minimum')
     r0_max = config.getfloat('param.r0', 'maximum')
@@ -205,7 +206,7 @@ if __name__ == '__main__':
                 iso_coords = isoline_properties_single_simulation(config, folder_path, time=2.5, tol=0.01)
                 if iso_coords is None:
                      continue
-                dot_prod_rms = np.power(np.sum(np.power(iso_coords['nabla_u'], 2))/ iso_coords['nabla_u'].size, 0.5)
+                dot_prod_rms = np.power(np.sum(np.power(np.abs(iso_coords['nabla_u']), p))/ iso_coords['nabla_u'].size, 1/p)
 
                 max_idx, min_idx = np.argmax(iso_coords['r']), np.argmin(iso_coords['r'])
                 print(r0_val, delta_val, np.max(iso_coords['th']), np.min(iso_coords['th']))
